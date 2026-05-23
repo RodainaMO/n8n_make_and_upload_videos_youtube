@@ -1,0 +1,512 @@
+{
+  "name": "video publishing to youtube",
+  "nodes": [
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n    \"type\": \"object\",\n    \"properties\": {\n        \"video_title\": {\n          \"type\": \"string\",\n          \"description\": \"the title of the video we use on YouTube\"\n        },\n        \"scenes\": {\n            \"type\": \"array\",\n            \"description\": \"the scenes of the video\",\n            \"items\": {\n                \"type\": \"object\",\n                \"properties\": {\n                    \"text\": {\n                        \"type\": \"string\",\n                        \"description\": \"the main content; this will be used to generate speech from\"\n                    },\n                    \"searchTerms\": {\n                        \"type\": \"array\",\n                        \"description\": \"the search terms to use to find background videos on pexels\",\n                        \"items\": {\n                            \"type\": \"string\"\n                        }\n                    }\n                },\n                \"required\": [\n                    \"text\",\n                    \"searchTerms\"\n                ]\n            }\n        }\n    },\n    \"required\": [\n        \"scenes\",\n        \"video_title\"\n    ]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [
+        -1824,
+        576
+      ],
+      "id": "6168e6f6-e2cb-47fe-b028-3fcd3b350287",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a19f9caa-f1aa-4ff0-a270-59248eeb27dd",
+              "name": "SERVER_URL",
+              "value": "http://host.docker.internal:3123",
+              "type": "string"
+            },
+            {
+              "id": "85f6a401-7a8f-4002-900d-8320cee8f553",
+              "name": "",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2752,
+        288
+      ],
+      "id": "e10907a6-4137-4ca8-9d12-833314f38c05",
+      "name": "Configure"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Configure').item.json.SERVER_URL }}/api/short-video",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"scenes\": {{ JSON.stringify($('Generate content').item.json.output.scenes, null, 2) }},\n  \"config\": {\n    \"paddingBack\": 1500,\n    \"music\": \"{{ $json.output.musicTag }}\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1056,
+        288
+      ],
+      "id": "d328943c-7848-40bb-9e22-646cab8fb837",
+      "name": "Start generating the video"
+    },
+    {
+      "parameters": {
+        "amount": 60
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -736,
+        272
+      ],
+      "id": "33f3d588-e1cb-44d9-b225-95fbc436a238",
+      "name": "Wait",
+      "webhookId": "fe4501f9-3334-4fc8-b3dd-83ea0ebb14a2"
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Configure').item.json.SERVER_URL }}/api/short-video/{{ $('Start generating the video').item.json.videoId }}/status",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -464,
+        272
+      ],
+      "id": "28f70a1f-867a-4cc6-b834-b38e4420e481",
+      "name": "Check video status",
+      "alwaysOutputData": false,
+      "retryOnFail": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "6cc1bd80-2bb7-47b6-950e-be3d6a36a965",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "ready",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -240,
+        272
+      ],
+      "id": "d6c4c7dd-20e3-4d93-9fd1-eb0a7670408f",
+      "name": "Ready?"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.SERVER_URL }}/api/music-tags",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2560,
+        288
+      ],
+      "id": "4ecad192-16ba-4061-b312-9c79306b49ee",
+      "name": "Get music tags"
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n    \"type\": \"object\",\n    \"properties\": {\n        \"musicTag\": {\n            \"type\": \"string\",\n            \"description\": \"the selected music tag that goes well with the video\"\n        }\n    },\n    \"required\": [\n        \"musicTag\"\n    ]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [
+        -1376,
+        512
+      ],
+      "id": "990786e9-fa1f-47af-9672-f7c348cfec60",
+      "name": "Structured Output Parser1"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=I'm generating a video programmatically using an API. I've already generated the scenes, and your task is to find the right music tag for he video.\n\n<VideoScenes>\n{{ $json.output.scenes.map(item => item.text).map(item => `<VideoScene>${item}</VideoScene>`).join('\\n') }}\n</VideoScenes>\n\n<MusicTags>\n{{ $('Group the music tags').item.json.data.map(item => `<MusicTag>${item}</MusicTag>`).join('\\n') }}\n</MusicTags>",
+        "hasOutputParser": true
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.6,
+      "position": [
+        -1520,
+        288
+      ],
+      "id": "0778b8c0-cbf5-4af2-90bc-f5488d6cf8b5",
+      "name": "Pick the right music",
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        -2272,
+        288
+      ],
+      "id": "f2a07f5f-38dc-409e-ae20-3cfabe8b9ae9",
+      "name": "Group the music tags"
+    },
+    {
+      "parameters": {
+        "resource": "video",
+        "operation": "upload",
+        "title": "={{ $('Generate content').item.json.output.video_title }}",
+        "regionCode": "EG",
+        "categoryId": "22",
+        "options": {
+          "description": "={{ $('Generate content').item.json.output.video_title }}. Mysterious facts from quiick curioss.",
+          "tags": "={{ $('Generate content').item.json.output.video_title }}, curious, mystery, facts"
+        }
+      },
+      "type": "n8n-nodes-base.youTube",
+      "typeVersion": 1,
+      "position": [
+        1360,
+        256
+      ],
+      "id": "2f82b8c0-1d4d-4d46-89ad-30078b25eeac",
+      "name": "YouTube",
+      "credentials": {
+        "youTubeOAuth2Api": {
+          "id": "hn5xzhk1X9JtvPdu",
+          "name": "YouTube account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 3
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -2992,
+        288
+      ],
+      "id": "a31ed4ff-1cd9-470b-a7f4-2878c0564a1b",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "# quiick curioss - Viral Science Video Generator\n\nYou are a content creator for \"quiick curioss,\" a viral science channel on TikTok and YouTube Shorts. Your job is to create short, attention-grabbing 4-scene videos about mind-blowing scientific facts.\n\n## Your Task:\nGenerate a 4-scene video script about a fascinating scientific topic from fields like:\n- Astrophysics & cosmology\n- Quantum mechanics\n- Strange biology & evolution\n- Human body & neuroscience\n- Chemistry & chemical reactions\n- Psychology & behavioral science\n- Physics phenomena\n- Marine biology & deep sea creatures\n- Genetics & DNA\n- Space exploration\n\n## Each Scene Must Include:\n1. **Text**: A short, punchy line that will be converted to speech (1-2 sentences max)\n2. **Search Terms**: 2-3 one-word terms for finding background videos on Pexels API\n\n## CRITICAL: Search Terms Guidelines\nSearch terms must be **concrete, filmable subjects** that exist as stock footage on Pexels, NOT abstract concepts.\n\n**BAD Examples (too abstract):**\n- ❌ deep, darkness, mystery, discover, connection\n- ❌ spooky, strange, weird, amazing, incredible\n\n**GOOD Examples (concrete & visual):**\n- ✅ ocean, jellyfish, astronaut, laboratory, microscope\n- ✅ brain, explosion, galaxy, volcano\n- ✅ forest, animals, scientist, experiment, crystals\n\n**Search Term Rules:**\n1. Use NOUNS (things you can see/film), not adjectives or verbs\n2. Think like a stock footage library - what would a camera actually capture?\n3. For science topics, use: laboratory, microscope, scientist, experiment, research, telescope\n4. For space: galaxy, stars, planets, astronaut, rocket, nebula\n5. For nature: ocean, forest, animals, cells, DNA, brain\n6. For people: scientist, doctor, researcher, hands, eyes\n\n## Content Guidelines:\n- **Hook the viewer immediately** - Start with lines like:\n  - \"Did you know…\"\n  - \"Have you ever heard of…\"\n  - \"What would you do if…\"\n  - \"Here's a science fact you won't believe…\"\n  \n- **Keep it fast-paced** - These are 15-60 second videos\n- **Make it weird, shocking, or mysterious** - Target the \"No way… I need to know more\" reaction\n- **End with a twist or hook** - Leave viewers wanting more\n- **Stay scientifically accurate** - But focus on the most bizarre/fascinating aspects\n- **Never repeat topics** - Each video should cover something completely new\n\n## Output Format:\nFor each video, provide:\n\n**Video Title: [Catchy Science Topic]**\n\n**Scene 1:**\n- Text: \"[Hook line]\"\n- Search terms: word1, word2, word3\n\n**Scene 2:**\n- Text: \"[Build curiosity]\"\n- Search terms: word1, word2, word3\n\n**Scene 3:**\n- Text: \"[Deliver the mind-blow]\"\n- Search terms: word1, word2, word3\n\n**Scene 4:**\n- Text: \"[Twist/Hook ending]\"\n- Search terms: word1, word2, word3\n\n---\n\nNow generate a viral science video script with CONCRETE, FILMABLE search terms.",
+        "hasOutputParser": true
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.6,
+      "position": [
+        -2000,
+        288
+      ],
+      "id": "6bae9896-d8ce-40cc-970b-0101aa6cf4bc",
+      "name": "Generate content",
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatMistralCloud",
+      "typeVersion": 1,
+      "position": [
+        -2112,
+        496
+      ],
+      "id": "2e56c99c-bf8a-4c89-b59f-0e4e531b5170",
+      "name": "Mistral Cloud Chat Model",
+      "credentials": {
+        "mistralCloudApi": {
+          "id": "VvHY6QaqbgtlDjn0",
+          "name": "Mistral Cloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "command": "=wget -O /tmp/{{ $('Start generating the video').item.json.videoId }}.mp4 \"{{ $('Configure').item.json.SERVER_URL }}/api/short-video/{{ $('Start generating the video').item.json.videoId }}\""
+      },
+      "id": "4aee9caa-b645-4d20-b1ab-bba158c74c28",
+      "name": "Fast Download (wget)",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        64,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "filePath": "=/tmp/{{ $('Start generating the video').item.json.videoId }}.mp4"
+      },
+      "id": "059395a2-1e87-4cd7-a956-b498a6137d86",
+      "name": "Read Video File",
+      "type": "n8n-nodes-base.readBinaryFile",
+      "typeVersion": 1,
+      "position": [
+        384,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loop over items and force the MIME type to video/mp4\nfor (const item of items) {\n  if (item.binary && item.binary.data) {\n    item.binary.data.mimeType = 'video/mp4';\n  }\n}\n\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        592,
+        240
+      ],
+      "id": "1488659b-74e1-4fb3-a9d4-2df28642a31b",
+      "name": "Code in JavaScript"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Generate content",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Configure": {
+      "main": [
+        [
+          {
+            "node": "Get music tags",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Check video status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start generating the video": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check video status": {
+      "main": [
+        [
+          {
+            "node": "Ready?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ready?": {
+      "main": [
+        [
+          {
+            "node": "Fast Download (wget)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get music tags": {
+      "main": [
+        [
+          {
+            "node": "Group the music tags",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser1": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Pick the right music",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick the right music": {
+      "main": [
+        [
+          {
+            "node": "Start generating the video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Group the music tags": {
+      "main": [
+        [
+          {
+            "node": "Generate content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Configure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate content": {
+      "main": [
+        [
+          {
+            "node": "Pick the right music",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mistral Cloud Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Generate content",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Pick the right music",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fast Download (wget)": {
+      "main": [
+        [
+          {
+            "node": "Read Video File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Video File": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "YouTube",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "55aa9cf7-1e85-4edd-b9a5-ad3e291b8f51",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "97cdaab89af73ebd5970b4d23e9d1859d7eb3b935c78db3eb6127ddba5b4902d"
+  },
+  "id": "dXLSIqHaMSBl2mC4",
+  "tags": []
+}
